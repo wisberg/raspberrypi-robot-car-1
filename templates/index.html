@@ -1,0 +1,155 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>Car Control</title>
+    <script src="/static/controls.js"></script>
+    <link href="https://fonts.googleapis.com/css2?family=Orbitron:wght@400;700;900&display=swap" rel="stylesheet">
+    <style>
+        @keyframes matrix-rain {
+            0% { transform: translateY(-100vh); opacity: 0; }
+            10% { opacity: 1; }
+            90% { opacity: 1; }
+            100% { transform: translateY(100vh); opacity: 0; }
+        }
+        body {
+            margin: 0;
+            background: #000;
+            color: #00ff00;
+            font-family: 'Orbitron', monospace;
+            min-height: 100vh;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            overflow-x: hidden;
+            position: relative;
+        }
+        body::before {
+            content: '';
+            position: fixed;
+            top: 0;
+            left: 0;
+            width: 100%;
+            height: 100%;
+            background: repeating-linear-gradient(
+                0deg,
+                rgba(0, 255, 0, 0.03) 0px,
+                transparent 1px,
+                transparent 2px,
+                rgba(0, 255, 0, 0.03) 3px
+            );
+            pointer-events: none;
+            z-index: 0;
+        }
+        .header {
+            margin-top: 32px;
+            margin-bottom: 18px;
+            z-index: 1;
+        }
+        h1 {
+            font-size: 2.5em;
+            letter-spacing: 3px;
+            margin-bottom: 8px;
+            text-shadow: 0 0 10px #00ff00, 0 0 20px #00ff00, 0 0 30px #00ff00;
+            color: #00ff00;
+        }
+        .controls-instructions {
+            background: rgba(0, 0, 0, 0.9);
+            border: 2px solid #00ff00;
+            border-radius: 0;
+            padding: 18px 26px;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5), inset 0 0 20px rgba(0, 255, 0, 0.1);
+            display: inline-block;
+            margin-bottom: 18px;
+            z-index: 1;
+        }
+        .key {
+            display: inline-block;
+            min-width: 32px;
+            color: #000;
+            background: #00ff00;
+            border: 1px solid #00ff00;
+            padding: 2px 9px;
+            margin: 3px 2px;
+            font-weight: bold;
+            font-size: 1.07em;
+            box-shadow: 0 0 10px rgba(0, 255, 0, 0.8);
+            text-shadow: 0 0 5px #000;
+        }
+        .stream-container {
+            margin: 12px 0 0 0;
+            width: 100%;
+            display: flex;
+            flex-direction: column;
+            align-items: center;
+            z-index: 1;
+        }
+        .camera {
+            width: 95%;
+            max-width: 640px;
+            border: 3px solid #00ff00;
+            box-shadow: 0 0 30px rgba(0, 255, 0, 0.6), inset 0 0 30px rgba(0, 255, 0, 0.2);
+            margin-bottom: 18px;
+            filter: contrast(1.1) brightness(0.9);
+        }
+        .status {
+            position: fixed;
+            right: 30px;
+            top: 30px;
+            background: rgba(0, 0, 0, 0.9);
+            color: #00ff00;
+            border: 2px solid #00ff00;
+            font-size: 1.12em;
+            padding: 14px 22px;
+            z-index: 99;
+            box-shadow: 0 0 20px rgba(0, 255, 0, 0.5);
+            text-shadow: 0 0 5px #00ff00;
+        }
+        @media (max-width: 700px) {
+            .camera {width: 100vw; max-width:99vw;}
+            .controls-instructions {padding:12px 5px; font-size:.98em;}
+            .status {right:6px; top:6px; font-size:.98em; padding:9px 7px;}
+        }
+    </style>
+</head>
+<body>
+    <div class="header">
+        <h1>ROBOT CAR</h1>
+    </div>
+    <div class="controls-instructions">
+        <div><b>Drive:</b> <span class="key">&#8593;</span> <span class="key">&#8595;</span> &nbsp;&nbsp; <b>Steer:</b> <span class="key">&#8592;</span> <span class="key">&#8594;</span></div>
+        <div><b>Pan/Tilt Camera:</b> <span class="key">W</span> <span class="key">A</span> <span class="key">S</span> <span class="key">D</span></div>
+        <div style="color:#aad7ff;font-size:.96em;margin-top:2px">Hold keys for continuous motion</div>
+    </div>
+    <div class="stream-container">
+        <img class="camera" src="http://192.168.2.82:8080/?action=stream" alt="Camera Stream" />
+    </div>
+    <div class="status" id="statusBox">Ready</div>
+    <script>
+      // Fancy feedback (show last action)
+      const statusBox = document.getElementById("statusBox");
+      const cmdMap = {
+        "forward":'🚗 Forward', "back":'⏪ Reverse', "stop":'⏹ Stop',
+        "steer_left":'↰ Left', "steer_right":'↱ Right',
+        "tilt_up":'Tilt ↑', "tilt_down":'Tilt ↓', "pan_left":'Pan ←', "pan_right":'Pan →'
+      };
+      // debounce status to not overwrite unless command changed
+      let lastCmd = '';
+      document.addEventListener("keydown", e=> {
+        let c = '';
+        if      (e.key === 'ArrowUp')   c = "forward";
+        else if (e.key === 'ArrowDown') c = "back";
+        else if (e.key === 'ArrowLeft') c = "steer_left";
+        else if (e.key === 'ArrowRight')c = "steer_right";
+        else if (e.key === 'w') c = "tilt_up";
+        else if (e.key === 's') c = "tilt_down";
+        else if (e.key === 'a') c = "pan_right";
+        else if (e.key === 'd') c = "pan_left";
+        if(c && lastCmd!==c) {
+          statusBox.textContent = cmdMap[c] || c;
+          lastCmd = c;
+        }
+      });
+      document.addEventListener("keyup", e=> { statusBox.textContent = 'Ready'; lastCmd=''; });
+    </script>
+</body>
+</html>
